@@ -1,8 +1,8 @@
 {
   "name": "hubot-scripts-us-federal-holidays-reminder",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "description": "Post a reminder about upcoming US federal holidays",
-  "main": "holida-reminder.js",
+  "main": "holiday-reminder.js",
   "scripts": {
     "test": "mocha *.test.js"
   },
