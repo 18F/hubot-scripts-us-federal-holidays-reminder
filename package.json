@@ -1,0 +1,39 @@
+{
+  "name": "hubot-scripts-us-federal-holidays-reminder",
+  "version": "1.0.0",
+  "description": "Post a reminder about upcoming US federal holidays",
+  "main": "holida-reminder.js",
+  "scripts": {
+    "test": "mocha *.test.js"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/18F/hubot-scripts-us-federal-holidays-reminder.git"
+  },
+  "keywords": [
+    "hubot",
+    "hubot-scripts",
+    "holiday",
+    "federal"
+  ],
+  "author": "Greg Walker <michael.walker@gsa.gov>",
+  "license": "CC0-1.0",
+  "bugs": {
+    "url": "https://github.com/18F/hubot-scripts-us-federal-holidays-reminder/issues"
+  },
+  "homepage": "https://github.com/18F/hubot-scripts-us-federal-holidays-reminder#readme",
+  "devDependencies": {
+    "chai": "^4.1.2",
+    "mocha": "^4.0.1",
+    "sinon": "^4.1.2"
+  },
+  "deeprDependencies": {
+    "hubot": "^2.19.0"
+  },
+  "dependencies": {
+    "@18f/us-federal-holidays": "^1.1.1",
+    "moment": "^2.19.3",
+    "moment-timezone": "^0.5.14",
+    "node-schedule": "^1.2.5"
+  }
+}
