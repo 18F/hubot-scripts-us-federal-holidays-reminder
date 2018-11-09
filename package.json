@@ -4,6 +4,8 @@
   "description": "Post a reminder about upcoming US federal holidays",
   "main": "holiday-reminder.js",
   "scripts": {
+    "lint": "eslint holiday-reminder*.js",
+    "prettier": "prettier --single-quote --trailing-comma none --write holiday-reminder*.js",
     "test": "mocha *.test.js"
   },
   "repository": {
@@ -23,17 +25,22 @@
   },
   "homepage": "https://github.com/18F/hubot-scripts-us-federal-holidays-reminder#readme",
   "devDependencies": {
-    "chai": "^4.1.2",
-    "mocha": "^4.0.1",
-    "sinon": "^4.1.2"
+    "chai": "^4.2.0",
+    "eslint": "^5.8.0",
+    "eslint-config-airbnb-base": "^13.1.0",
+    "eslint-config-prettier": "^3.1.0",
+    "eslint-plugin-import": "^2.14.0",
+    "mocha": "^5.2.0",
+    "prettier": "^1.15.1",
+    "sinon": "^7.1.1"
   },
   "deeprDependencies": {
     "hubot": "^2.19.0"
   },
   "dependencies": {
-    "@18f/us-federal-holidays": "^1.1.1",
-    "moment": "^2.19.3",
-    "moment-timezone": "^0.5.14",
-    "node-schedule": "^1.2.5"
+    "@18f/us-federal-holidays": "^1.2.0",
+    "moment": "^2.22.2",
+    "moment-timezone": "^0.5.23",
+    "node-schedule": "^1.3.0"
   }
 }

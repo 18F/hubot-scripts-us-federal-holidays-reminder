@@ -2,66 +2,75 @@ const moment = require('moment-timezone');
 const scheduler = require('node-schedule');
 const holidays = require('@18f/us-federal-holidays');
 
-const REPORTING_TIME = process.env.HUBOT_HOLIDAY_REMINDER_TIME || '15:00';
-const TIMEZONE = process.env.HUBOT_HOLIDAY_REMINDER_TIMEZONE || 'America/New_York';
 const CHANNEL = process.env.HUBOT_HOLIDAY_REMINDER_CHANNEL || 'general';
+const TIMEZONE =
+  process.env.HUBOT_HOLIDAY_REMINDER_TIMEZONE || 'America/New_York';
+const reportingTime = moment(
+  process.env.HUBOT_HOLIDAY_REMINDER_TIME || '15:00',
+  'HH:mm'
+);
 
-function hasRunAlready(date, robot) {
-  return (date.format('YYYY-M-D') === robot.brain.get('LAST_HOLIDAY_REPORT_DATE'));
-}
+const getNextHoliday = () => {
+  const now = moment().tz(TIMEZONE);
+  return holidays
+    .allForYear(now.year())
+    .concat(holidays.allForYear(now.year() + 1))
+    .map(h => ({
+      ...h,
+      date: moment(h.dateString, 'YYYY-MM-DD').tz(TIMEZONE)
+    }))
+    .filter(h => h.date.isAfter(now))
+    .shift();
+};
 
-function isWeekend(date) {
-  const today = date.format('dddd');
-  return (today === 'Saturday' || today === 'Sunday');
-}
+const previousWeekday = date => {
+  const source = moment(date);
+  source.subtract(1, 'day');
 
-function isReportingTime(date) {
-  const reportingTime = moment(REPORTING_TIME, 'HH:mm');
-  return (date.hours() === reportingTime.hours() && date.minutes() === reportingTime.minutes());
-}
-
-function getNextWeekday(date) {
-  const targetDate = moment(date).add(1, 'day');
-  while (targetDate.format('dddd') === 'Saturday' || targetDate.format('dddd') === 'Sunday') {
-    targetDate.add(1, 'day');
+  let dow = source.format('dddd');
+  while (dow === 'Saturday' || dow === 'Sunday') {
+    source.subtract(1, 'day');
+    dow = source.format('dddd');
   }
-  return targetDate;
-}
 
-function holidayForDate(date) {
-  const dateString = date.format('YYYY-M-D');
-  const possibleHolidays = holidays.allForYear(date.format('YYYY')).filter(holiday => holiday.dateString === dateString);
+  return source;
+};
 
-  if (possibleHolidays.length) {
-    return possibleHolidays[0];
-  }
-  return false;
-}
+const postReminder = (robot, holiday) => {
+  robot.messageRoom(
+    CHANNEL,
+    `@here Remember that *${holiday.date.format(
+      'dddd'
+    )}* is a federal holiday for the observation of *${holiday.name}*!`
+  );
+};
 
-function timerTick(robot, now, internalFunctions) {
-  if (internalFunctions.isWeekend(now) || !internalFunctions.isReportingTime(now) || internalFunctions.hasRunAlready(now)) {
-    return;
-  }
-  robot.brain.set('LAST_HOLIDAY_REPORT_DATE', now.format('YYYY-M-D'));
+const scheduleReminder = (
+  robot,
+  fn = { getNextHoliday, previousWeekday, postReminder, scheduler }
+) => {
+  const nextHoliday = fn.getNextHoliday();
+  const target = fn.previousWeekday(nextHoliday.date);
 
-  const nextWeekday = internalFunctions.getNextWeekday(now);
-  const upcomingHoliday = internalFunctions.holidayForDate(nextWeekday);
+  target.hour(reportingTime.hour());
+  target.minute(reportingTime.minute());
 
-  if (upcomingHoliday) {
-    robot.messageRoom(CHANNEL, `@here Remember that *${nextWeekday.format('dddd')}* is a federal holiday for the observation of *${upcomingHoliday.name}*!`);
-  }
-}
+  fn.scheduler.scheduleJob(target.toDate(), () => {
+    fn.postReminder(robot, nextHoliday);
 
-module.exports = (robot) => {
-  scheduler.scheduleJob('0 0 * * * 1-5', () => {
-    timerTick(robot, moment().tz(TIMEZONE), { isReportingTime, hasRunAlready, getNextWeekday, holidayForDate });
+    // Tomorrow, schedule the next holiday reminder
+    fn.scheduler.scheduleJob(target.add(1, 'day').toDate(), () => {
+      scheduleReminder(robot);
+    });
   });
 };
 
+module.exports = scheduleReminder;
+
 // Expose for testing
-module.exports.timerTick = timerTick;
-module.exports.isWeekend = isWeekend;
-module.exports.isReportingTime = isReportingTime;
-module.exports.hasRunAlready = hasRunAlready;
-module.exports.getNextWeekday = getNextWeekday;
-module.exports.holidayForDate = holidayForDate;
+module.exports.testing = {
+  getNextHoliday,
+  postReminder,
+  previousWeekday,
+  scheduleReminder
+};
