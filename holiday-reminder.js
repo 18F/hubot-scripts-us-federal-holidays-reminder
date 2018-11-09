@@ -11,13 +11,13 @@ const reportingTime = moment(
 );
 
 const getNextHoliday = () => {
-  const now = moment().tz(TIMEZONE);
+  const now = moment.tz(TIMEZONE);
   return holidays
     .allForYear(now.year())
     .concat(holidays.allForYear(now.year() + 1))
     .map(h => ({
       ...h,
-      date: moment(h.dateString, 'YYYY-MM-DD').tz(TIMEZONE)
+      date: moment.tz(h.dateString, 'YYYY-MM-DD', TIMEZONE)
     }))
     .filter(h => h.date.isAfter(now))
     .shift();
