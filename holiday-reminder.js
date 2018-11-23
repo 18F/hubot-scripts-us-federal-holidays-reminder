@@ -9,6 +9,21 @@ const reportingTime = moment(
   process.env.HUBOT_HOLIDAY_REMINDER_TIME || '15:00',
   'HH:mm'
 );
+const SUPPRESS_HERE = process.env.HUBOT_HOLIDAY_REMINDER_SUPPRESS_HERE;
+
+const suppressHere = (() => {
+  if (SUPPRESS_HERE) {
+    const upper = SUPPRESS_HERE.toUpperCase();
+    if (upper === 'TRUE' || upper === 'YES' || upper === 'Y') {
+      return true;
+    }
+
+    if (!Number.isNaN(+SUPPRESS_HERE) && +SUPPRESS_HERE > 0) {
+      return true;
+    }
+  }
+  return false;
+})();
 
 const getNextHoliday = () => {
   const now = moment.tz(TIMEZONE);
@@ -39,7 +54,7 @@ const previousWeekday = date => {
 const postReminder = (robot, holiday) => {
   robot.messageRoom(
     CHANNEL,
-    `@here Remember that *${holiday.date.format(
+    `${suppressHere ? '' : '@here '}Remember that *${holiday.date.format(
       'dddd'
     )}* is a federal holiday for the observation of *${holiday.name}*!`
   );
