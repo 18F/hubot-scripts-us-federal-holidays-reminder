@@ -1,15 +1,25 @@
-/* global describe, it, before, beforeEach */
+/* global describe, it, after, beforeEach */
 
 const expect = require('chai').expect;
-const moment = require('moment');
+const moment = require('moment-timezone');
 const sinon = require('sinon');
 
-const {
+let {
   getNextHoliday,
   previousWeekday,
   postReminder,
   scheduleReminder
 } = require('./holiday-reminder').testing;
+
+const reload = () => {
+  delete require.cache[require.resolve('./holiday-reminder')];
+  const lib = require('./holiday-reminder').testing; // eslint-disable-line global-require
+
+  getNextHoliday = lib.getNextHoliday;
+  previousWeekday = lib.previousWeekday;
+  postReminder = lib.postReminder;
+  scheduleReminder = lib.scheduleReminder;
+};
 
 describe('holiday reminder', () => {
   const sandbox = sinon.createSandbox();
@@ -31,23 +41,61 @@ describe('holiday reminder', () => {
     sandbox.reset();
   });
 
-  it('gets the next holiday', () => {
-    const clock = sinon.useFakeTimers(new Date(2012, 5, 25).getTime());
-
-    const nextHoliday = getNextHoliday();
-
-    expect(moment(nextHoliday.date).isValid()).to.equal(true);
-
-    // remove this from the object match, otherwise
-    // it becomes a whole big thing, dependent on
-    // moment not changing its internal object structure
-    delete nextHoliday.date;
-
-    expect(nextHoliday).to.eql({
-      name: 'Independence Day',
-      dateString: '2012-7-4'
+  describe('gets the next holiday', () => {
+    const originalTimezone = process.env.HUBOT_HOLIDAY_REMINDER_TIMEZONE;
+    after(() => {
+      process.env.HUBOT_HOLIDAY_REMINDER_TIMEZONE = originalTimezone;
+      reload();
     });
-    clock.restore();
+
+    it('defaults to America/New_York time', () => {
+      // Midnight on May 28 in eastern timezone
+      const clock = sinon.useFakeTimers(
+        +moment.tz('2012-05-28', 'YYYY-MM-DD', 'America/New_York').format('x')
+      );
+
+      const nextHoliday = getNextHoliday();
+
+      expect(moment(nextHoliday.date).isValid()).to.equal(true);
+
+      // remove this from the object match, otherwise
+      // it becomes a whole big thing, dependent on
+      // moment not changing its internal object structure
+      delete nextHoliday.date;
+
+      expect(nextHoliday).to.eql({
+        name: 'Independence Day',
+        dateString: '2012-7-4'
+      });
+      clock.restore();
+    });
+
+    it('defaults to America/New_York time', () => {
+      process.env.HUBOT_HOLIDAY_REMINDER_TIMEZONE = 'America/Chicago';
+      reload();
+
+      // Midnight on May 28 in US eastern timezone.  Because our reminder
+      // timezone is US central timezone, "now" is still May 27, so the
+      // "next" holiday should be May 28 - Memorial Day
+      const clock = sinon.useFakeTimers(
+        +moment.tz('2012-05-28', 'YYYY-MM-DD', 'America/New_York').format('x')
+      );
+
+      const nextHoliday = getNextHoliday();
+
+      expect(moment(nextHoliday.date).isValid()).to.equal(true);
+
+      // remove this from the object match, otherwise
+      // it becomes a whole big thing, dependent on
+      // moment not changing its internal object structure
+      delete nextHoliday.date;
+
+      expect(nextHoliday).to.eql({
+        name: 'Memorial Day',
+        dateString: '2012-5-28'
+      });
+      clock.restore();
+    });
   });
 
   describe('gets the previous weekday', () => {
@@ -95,55 +143,129 @@ describe('holiday reminder', () => {
     });
   });
 
-  it('posts a reminder', () => {
-    postReminder(robot, {
-      date: moment('2018-11-12', 'YYYY-MM-DD'),
-      name: 'Test Holiday'
+  describe('posts a reminder', () => {
+    const originalChannel = process.env.HUBOT_HOLIDAY_REMINDER_CHANNEL;
+    after(() => {
+      process.env.HUBOT_HOLIDAY_REMINDER_CHANNEL = originalChannel;
+      reload();
     });
 
-    expect(
-      robot.messageRoom.calledWith(
-        'general',
-        '@here Remember that *Monday* is a federal holiday for the observation of *Test Holiday*'
-      )
-    );
+    it('defaults to #general', () => {
+      postReminder(robot, {
+        date: moment('2018-11-12', 'YYYY-MM-DD'),
+        name: 'Test Holiday'
+      });
+
+      expect(
+        robot.messageRoom.calledWith(
+          'general',
+          '@here Remember that *Monday* is a federal holiday for the observation of *Test Holiday*!'
+        )
+      ).to.equal(true);
+    });
+
+    it('honors the HUBOT_HOLIDAY_REMINDER_CHANNEL env var', () => {
+      process.env.HUBOT_HOLIDAY_REMINDER_CHANNEL = 'fred';
+      reload();
+
+      postReminder(robot, {
+        date: moment('2018-11-12', 'YYYY-MM-DD'),
+        name: 'Test Holiday'
+      });
+
+      expect(
+        robot.messageRoom.calledWith(
+          'fred',
+          '@here Remember that *Monday* is a federal holiday for the observation of *Test Holiday*!'
+        )
+      ).to.equal(true);
+    });
   });
 
-  it('schedules a reminder', () => {
-    const nextHoliday = { date: 'in the future' };
-    functionMocks.getNextHoliday.returns(nextHoliday);
+  describe('schedules a reminder', () => {
+    const originalTime = process.env.HUBOT_HOLIDAY_REMINDER_TIME;
+    after(() => {
+      process.env.HUBOT_HOLIDAY_REMINDER_TIME = originalTime;
+      reload();
+    });
 
-    const weekdayBefore = moment('2000-01-01', 'YYYY-MM-DD');
-    functionMocks.previousWeekday.returns(weekdayBefore);
+    it('defaults to 15:00', () => {
+      const nextHoliday = { date: 'in the future' };
+      functionMocks.getNextHoliday.returns(nextHoliday);
 
-    scheduleReminder(robot, functionMocks);
+      const weekdayBefore = moment('2000-01-01', 'YYYY-MM-DD');
+      functionMocks.previousWeekday.returns(weekdayBefore);
 
-    expect(functionMocks.previousWeekday.calledWith('in the future')).to.equal(
-      true
-    );
-    expect(weekdayBefore.hour()).to.equal(15);
-    expect(weekdayBefore.minute()).to.equal(0);
+      scheduleReminder(robot, functionMocks);
 
-    expect(
-      functionMocks.scheduler.scheduleJob.calledWith(
-        sinon.match(v => moment(v).isSame(weekdayBefore)),
-        sinon.match.func
-      )
-    ).to.equal(true);
+      expect(
+        functionMocks.previousWeekday.calledWith('in the future')
+      ).to.equal(true);
+      expect(weekdayBefore.hour()).to.equal(15);
+      expect(weekdayBefore.minute()).to.equal(0);
 
-    // call the scheduled job
-    functionMocks.scheduler.scheduleJob.args[0][1]();
+      expect(
+        functionMocks.scheduler.scheduleJob.calledWith(
+          sinon.match(v => moment(v).isSame(weekdayBefore)),
+          sinon.match.func
+        )
+      ).to.equal(true);
 
-    expect(functionMocks.postReminder.calledWith(robot, nextHoliday)).to.equal(
-      true
-    );
+      // call the scheduled job
+      functionMocks.scheduler.scheduleJob.args[0][1]();
 
-    expect(
-      functionMocks.scheduler.scheduleJob.calledWith(
-        sinon.match(v => moment(v).isSame(weekdayBefore)),
-        sinon.match.func
-      )
-    ).to.equal(true);
-    expect(functionMocks.scheduler.scheduleJob.calledTwice).to.equal(true);
+      expect(
+        functionMocks.postReminder.calledWith(robot, nextHoliday)
+      ).to.equal(true);
+
+      expect(
+        functionMocks.scheduler.scheduleJob.calledWith(
+          sinon.match(v => moment(v).isSame(weekdayBefore)),
+          sinon.match.func
+        )
+      ).to.equal(true);
+      expect(functionMocks.scheduler.scheduleJob.calledTwice).to.equal(true);
+    });
+
+    it('respects HUBOT_HOLIDAY_REMINDER_TIME', () => {
+      process.env.HUBOT_HOLIDAY_REMINDER_TIME = '04:32';
+      reload();
+
+      const nextHoliday = { date: 'in the future' };
+      functionMocks.getNextHoliday.returns(nextHoliday);
+
+      const weekdayBefore = moment('2000-01-01', 'YYYY-MM-DD');
+      functionMocks.previousWeekday.returns(weekdayBefore);
+
+      scheduleReminder(robot, functionMocks);
+
+      expect(
+        functionMocks.previousWeekday.calledWith('in the future')
+      ).to.equal(true);
+      expect(weekdayBefore.hour()).to.equal(4);
+      expect(weekdayBefore.minute()).to.equal(32);
+
+      expect(
+        functionMocks.scheduler.scheduleJob.calledWith(
+          sinon.match(v => moment(v).isSame(weekdayBefore)),
+          sinon.match.func
+        )
+      ).to.equal(true);
+
+      // call the scheduled job
+      functionMocks.scheduler.scheduleJob.args[0][1]();
+
+      expect(
+        functionMocks.postReminder.calledWith(robot, nextHoliday)
+      ).to.equal(true);
+
+      expect(
+        functionMocks.scheduler.scheduleJob.calledWith(
+          sinon.match(v => moment(v).isSame(weekdayBefore)),
+          sinon.match.func
+        )
+      ).to.equal(true);
+      expect(functionMocks.scheduler.scheduleJob.calledTwice).to.equal(true);
+    });
   });
 });
