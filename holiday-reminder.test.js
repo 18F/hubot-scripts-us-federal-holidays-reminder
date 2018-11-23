@@ -1,4 +1,4 @@
-/* global describe, it, after, beforeEach */
+/* global describe, it, beforeEach */
 
 const expect = require('chai').expect;
 const moment = require('moment-timezone');
@@ -38,16 +38,16 @@ describe('holiday reminder', () => {
   };
 
   beforeEach(() => {
+    delete process.env.HUBOT_HOLIDAY_REMINDER_CHANNEL;
+    delete process.env.HUBOT_HOLIDAY_REMINDER_SUPPRESS_HERE;
+    delete process.env.HUBOT_HOLIDAY_REMINDER_TIME;
+    delete process.env.HUBOT_HOLIDAY_REMINDER_TIMEZONE;
+    reload();
+
     sandbox.reset();
   });
 
   describe('gets the next holiday', () => {
-    const originalTimezone = process.env.HUBOT_HOLIDAY_REMINDER_TIMEZONE;
-    after(() => {
-      process.env.HUBOT_HOLIDAY_REMINDER_TIMEZONE = originalTimezone;
-      reload();
-    });
-
     it('defaults to America/New_York time', () => {
       // Midnight on May 28 in eastern timezone
       const clock = sinon.useFakeTimers(
@@ -144,12 +144,6 @@ describe('holiday reminder', () => {
   });
 
   describe('posts a reminder', () => {
-    const originalChannel = process.env.HUBOT_HOLIDAY_REMINDER_CHANNEL;
-    after(() => {
-      process.env.HUBOT_HOLIDAY_REMINDER_CHANNEL = originalChannel;
-      reload();
-    });
-
     it('defaults to #general', () => {
       postReminder(robot, {
         date: moment('2018-11-12', 'YYYY-MM-DD'),
@@ -180,15 +174,49 @@ describe('holiday reminder', () => {
         )
       ).to.equal(true);
     });
+
+    describe('honors the HUBOT_HOLIDAY_REMINDER_SUPPRESS_HERE env var', () => {
+      ['true', 'yes', 'y', '1', '100'].forEach(flag => {
+        it(`suppresses if the env var is set to "${flag}"`, () => {
+          process.env.HUBOT_HOLIDAY_REMINDER_SUPPRESS_HERE = flag;
+          reload();
+
+          postReminder(robot, {
+            date: moment('2018-11-12', 'YYYY-MM-DD'),
+            name: 'Test Holiday'
+          });
+
+          expect(
+            robot.messageRoom.calledWith(
+              'general',
+              'Remember that *Monday* is a federal holiday for the observation of *Test Holiday*!'
+            )
+          ).to.equal(true);
+        });
+      });
+
+      ['false', 'no', 'n', '0', ''].forEach(flag => {
+        it(`does not suppress if the env var is set to "${flag}"`, () => {
+          process.env.HUBOT_HOLIDAY_REMINDER_SUPPRESS_HERE = flag;
+          reload();
+
+          postReminder(robot, {
+            date: moment('2018-11-12', 'YYYY-MM-DD'),
+            name: 'Test Holiday'
+          });
+
+          expect(
+            robot.messageRoom.calledWith(
+              'general',
+              '@here Remember that *Monday* is a federal holiday for the observation of *Test Holiday*!'
+            )
+          ).to.equal(true);
+        });
+      });
+    });
   });
 
   describe('schedules a reminder', () => {
-    const originalTime = process.env.HUBOT_HOLIDAY_REMINDER_TIME;
-    after(() => {
-      process.env.HUBOT_HOLIDAY_REMINDER_TIME = originalTime;
-      reload();
-    });
-
     it('defaults to 15:00', () => {
       const nextHoliday = { date: 'in the future' };
       functionMocks.getNextHoliday.returns(nextHoliday);
