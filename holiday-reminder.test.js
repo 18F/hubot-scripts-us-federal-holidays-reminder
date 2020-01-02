@@ -153,7 +153,7 @@ describe('holiday reminder', () => {
       expect(
         robot.messageRoom.calledWith(
           'general',
-          '@here Remember that *Monday* is a federal holiday for the observation of *Test Holiday*!'
+          '@here Remember that *Monday* is a federal holiday in observance of *Test Holiday*!'
         )
       ).to.equal(true);
     });
@@ -170,7 +170,7 @@ describe('holiday reminder', () => {
       expect(
         robot.messageRoom.calledWith(
           'fred',
-          '@here Remember that *Monday* is a federal holiday for the observation of *Test Holiday*!'
+          '@here Remember that *Monday* is a federal holiday in observance of *Test Holiday*!'
         )
       ).to.equal(true);
     });
@@ -189,7 +189,7 @@ describe('holiday reminder', () => {
           expect(
             robot.messageRoom.calledWith(
               'general',
-              'Remember that *Monday* is a federal holiday for the observation of *Test Holiday*!'
+              'Remember that *Monday* is a federal holiday in observance of *Test Holiday*!'
             )
           ).to.equal(true);
         });
@@ -208,7 +208,7 @@ describe('holiday reminder', () => {
           expect(
             robot.messageRoom.calledWith(
               'general',
-              '@here Remember that *Monday* is a federal holiday for the observation of *Test Holiday*!'
+              '@here Remember that *Monday* is a federal holiday in observance of *Test Holiday*!'
             )
           ).to.equal(true);
         });

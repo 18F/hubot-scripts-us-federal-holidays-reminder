@@ -56,7 +56,7 @@ const postReminder = (robot, holiday) => {
     CHANNEL,
     `${suppressHere ? '' : '@here '}Remember that *${holiday.date.format(
       'dddd'
-    )}* is a federal holiday for the observation of *${holiday.name}*!`
+    )}* is a federal holiday in observance of *${holiday.name}*!`
   );
 };
 
